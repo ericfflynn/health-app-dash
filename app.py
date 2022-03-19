@@ -98,7 +98,8 @@ slicers = dbc.CardGroup(
         dbc.Card(
             dbc.CardBody(
                 [
-                    dcc.Dropdown(list(df['Startstr']), df['Startstr'].iloc[0],id='dropdown')
+                    dcc.Dropdown(id='datedropdown')
+                    # list(df['Startstr']), df['Startstr'].iloc[0],
                 ]
             )
         )
@@ -138,11 +139,12 @@ app.layout = html.Div(
                     html.Div(children="Workout Type", className="menu-title"),
                     dcc.Dropdown(
                         id="type-filter",
-                        options=[
-                            {"label": workout_type, "value": workout_type}
-                            for workout_type in df.name.unique()
-                        ],
-                        value="Traditional Strength Training",
+                        options=[{'label': 'Select All', 'value': 'all_values'}] +
+                        [{"label": workout_type, "value": workout_type}
+                         for workout_type in ['Traditional Strength Training','Running','Cycling','Yoga', 'Walking','Tennis','Golf']
+                         # df.name.unique()
+                        ], 
+                        value='all_values',
                         clearable=False,
                         searchable=False,
                         className="dropdown",
@@ -170,7 +172,7 @@ app.layout = html.Div(
         dcc.Graph(
             id='figb',className='wrapper'),
         
-        dbc.Card(slicers),
+        dbc.Card(slicers,id='slicers'),
         
         dbc.Card(Workout_stats),
         
@@ -180,13 +182,44 @@ app.layout = html.Div(
 )
 
 @app.callback(
+        Output('datedropdown','options'),
+        Output('datedropdown','value'),
         Output("figb", "figure"),
         Input("type-filter", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"))
 
-
 def Update_Bar_Chart(workout_type, start_date, end_date):
+    if workout_type == 'all_values':    
+        sdate = datetime.strptime(start_date,"%Y-%m-%d").date()
+        edate = datetime.strptime(end_date,"%Y-%m-%d").date()
+        mask = (
+            (df.Start >= sdate)
+            & (df.Start <= edate)
+        )
+        filtered_df = df.loc[mask, :]
+        dim = pd.DataFrame(pd.date_range(sdate,edate-timedelta(days=1),freq='d')) 
+        dim['YearMonth'] = dim[0].apply(lambda x: x.strftime("%m-%Y"))
+        Dim_month = pd.DataFrame(list(np.unique(dim['YearMonth'])),columns=['Month'])
+        Grouped = filtered_df.groupby(['YearMonth']).agg({'name':'count','activeEnergy':'sum','maxHeartRate':'max'}). \
+        reset_index().rename(columns={'name':'# Workouts','activeEnergy':'Active Cal','maxHeartRate':'Max HR','YearMonth':'Month'})
+        Monthly =  Dim_month.merge(Grouped,on='Month',how='left')
+        Monthly['Date'] = Monthly['Month'].apply(lambda x: datetime.strptime(x,"%m-%Y").date())
+        Monthly = Monthly.sort_values(by = ['Date'])
+        #Monthly.drop('Date', axis = 1, inplace=True)
+        Monthly = Monthly.reset_index(drop=True)
+        Monthly['Avg Cal'] = Monthly['Active Cal'] / Monthly['# Workouts']
+        Monthly.fillna(0,inplace=True)
+
+        figb = px.bar(Monthly[-12:], x='Month', y='# Workouts',text_auto=True)
+        figb.update_layout(
+            yaxis={'visible': True, 'showticklabels': True, 'title':None,'showgrid':False},
+            xaxis={'visible': True, 'showticklabels': True, 'title':None,'showgrid':False},
+            title={'text':'Workouts Per Month','x':0.5,'y':0.9,'xanchor':'center','yanchor':'top'}
+                          )
+        figb.update_traces(marker_color='#079A82')
+        return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb
+    
     sdate = datetime.strptime(start_date,"%Y-%m-%d").date()
     edate = datetime.strptime(end_date,"%Y-%m-%d").date()
     mask = (
@@ -215,8 +248,7 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
         title={'text':'Workouts Per Month','x':0.5,'y':0.9,'xanchor':'center','yanchor':'top'}
                       )
     figb.update_traces(marker_color='#079A82')
-    return figb
-
+    return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb
 
 @app.callback(
     Output('Date', 'children'),
@@ -225,7 +257,7 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
     Output('Avg_hr', 'children'),
     Output('Max_hr', 'children'),
     Output('Type', 'children'),
-    Input('dropdown', 'value'))
+    Input('datedropdown', 'value'))
 
 def update_workout_stats(date):
     Day_data = df.loc[df['Startstr'] == date].reset_index()
@@ -240,7 +272,7 @@ def update_workout_stats(date):
 
 @app.callback(
     Output('graph', 'figure'),
-    Input('dropdown', 'value'))
+    Input('datedropdown', 'value'))
 
 def update_figure(date):
     Day_data = df.loc[df['Startstr'] == date].reset_index()
@@ -248,6 +280,7 @@ def update_figure(date):
     fig = px.line(x=Heart_Rate['date'],y=Heart_Rate['qty'])
     fig.update_layout(yaxis={'visible':True, 'title':'BPM'},
                       xaxis={'visible':False})
+    fig.update_traces(line_color='#079A82')
     return fig
 
 if __name__ == '__main__':
