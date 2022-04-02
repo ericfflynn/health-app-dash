@@ -342,7 +342,7 @@ def update_workout_stats(date):
         return Duration, Active_cal, "{:,.2f}".format(Distance), Max_hr, Type, 'Distance'
 
     else:
-        return Duration, Active_cal, Avg_hr, Max_hr, Type, 'AVG HR'
+        return Duration, Active_cal, Avg_hr, Max_hr, Type, 'Avg HR'
 
 
 @app.callback(
