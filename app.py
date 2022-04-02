@@ -7,8 +7,10 @@ import json
 import plotly.express as px
 import numpy as np
 import requests
+import plotly.graph_objects as go
 
 #Data Pull
+
 Response = requests.get('https://ericfflynn.github.io/Data/HealthAutoExport.json')
 data = Response.json()
 
@@ -26,15 +28,67 @@ df['YearMonth'] = df['Start'].apply(lambda x: x.strftime("%m-%Y"))
 df['YearWeek'] = df['start'].apply(lambda x: x.strftime("%Y-%W"))
 for i in ['activeEnergy','avgHeartRate','maxHeartRate','distance','totalEnergy','intensity',]:
     df[i] = df[i].apply(lambda x: x['qty'])
-    
+
+
+
+
+row_1 = dbc.Row(
+    dbc.CardBody(
+        [
+            html.H5("Workout KPI's", className="text-center"),
+        ]
+    ),
+)
+
+row_2 = dbc.Row(
+    [
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Average Workouts Per Month",style={'textAlign':'center'}),
+            dbc.CardBody(
+                [html.H5(id="Avg_Workouts", className="card-title",style={'textAlign':'center'}),
+                ]
+            ),
+        ], outline=False)),
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Average Calories Per Workout",style={'textAlign':'center'}),
+            dbc.CardBody(
+                [html.H5(id='Avg_Cal', className="card-title",style={'textAlign':'center'}),
+                ]
+            ),
+        ], outline=False)),
+    ],
+)
+
+
+row_3 = dbc.Row(
+    [
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Average BPM",style={'textAlign':'center'}),
+             dbc.CardBody(
+                [html.H5(id='Avg_BPM', className="card-title",style={'textAlign':'center'}),
+
+                ]
+            ),
+        ], outline=False)),
+        dbc.Col(dbc.Card([
+            dbc.CardHeader("Max BPM",style={'textAlign':'center'}),
+            dbc.CardBody(
+                [html.H5(id='Max_BPM', className="card-title",style={'textAlign':'center'}),
+                ]
+            ),
+        ], outline=False)),
+    ],
+)
+
+KPI_stack = html.Div([row_1, html.Br(), row_2, row_3])
+
 Workout_stats = dbc.CardGroup(
     [
         dbc.Card(
             dbc.CardBody(
                 [
                     html.H5("Date"),
-                    html.Div(id='Date'
-                    ),
+                    dcc.Dropdown(id='datedropdown',style={'width': '200px'},clearable=False),
                 ]
             )
         ),
@@ -68,7 +122,7 @@ Workout_stats = dbc.CardGroup(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H5("Avg HR"),
+                    html.H5(id='single1'),
                     html.P(id='Avg_hr',
                     ),
                 ]
@@ -85,28 +139,6 @@ Workout_stats = dbc.CardGroup(
         ),
     ],style={'textAlign':'center'}
 )
-
-slicers = dbc.CardGroup(
-    [
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    html.H4("Select Workout Date:",style={'textAlign': 'center'})
-                ]
-            )
-        ),
-        dbc.Card(
-            dbc.CardBody(
-                [
-                    dcc.Dropdown(id='datedropdown')
-                    # list(df['Startstr']), df['Startstr'].iloc[0],
-                ]
-            )
-        )
-    ]
-)
-        
-
 
 Latest_Update = 'Latest Update: '+ df['Start'].iloc[0].strftime("%m/%d/%Y")
 
@@ -136,13 +168,12 @@ app.layout = html.Div(
         children=[
             html.Div(
                 children=[
-                    html.Div(children="Workout Type", className="menu-title"),
+                    html.Div(children="Workout Type", className="menu-title", style={'textAlign':'center'}),
                     dcc.Dropdown(
                         id="type-filter",
                         options=[{'label': 'Select All', 'value': 'all_values'}] +
                         [{"label": workout_type, "value": workout_type}
                          for workout_type in ['Traditional Strength Training','Running','Cycling','Yoga', 'Walking','Tennis','Golf']
-                         # df.name.unique()
                         ], 
                         value='all_values',
                         clearable=False,
@@ -155,7 +186,8 @@ app.layout = html.Div(
                 children=[
                     html.Div(
                         children="Date Range",
-                        className="menu-title"
+                        className="menu-title",
+                        style={'textAlign':'center'}
                         ),
                     dcc.DatePickerRange(
                         id="date-range",
@@ -169,10 +201,35 @@ app.layout = html.Div(
         ],
         className="menu",
     ),
-        dcc.Graph(
-            id='figb',className='wrapper'),
+ 
         
-        dbc.Card(slicers,id='slicers'),
+        html.Div([
+            html.Br(),
+            dbc.Row([
+                dbc.Col(KPI_stack,width=4),
+                dbc.Col(dcc.Graph(id='figb'))
+                ]
+            )
+            ]   
+        ),
+        
+        html.Br(),
+        html.Div(
+    children=[
+        html.Div(
+            children=[
+                html.H1(
+                    children="Single Workout Analysis",className='header-title'
+                ),
+                 html.P(
+                     children='This section is designed to analyze individual workout heart rate data', className='header-description',
+                ),
+            ],
+            className='subheader',
+            
+        ),
+    ],
+        ),
         
         dbc.Card(Workout_stats),
         
@@ -185,11 +242,16 @@ app.layout = html.Div(
         Output('datedropdown','options'),
         Output('datedropdown','value'),
         Output("figb", "figure"),
+        Output('Max_BPM','children'),
+        Output('Avg_BPM','children'),
+        Output('Avg_Cal','children'),
+        Output('Avg_Workouts','children'),
+        
         Input("type-filter", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"))
 
-def Update_Bar_Chart(workout_type, start_date, end_date):
+def Update_charts_KPI(workout_type, start_date, end_date):
     if workout_type == 'all_values':    
         sdate = datetime.strptime(start_date,"%Y-%m-%d").date()
         edate = datetime.strptime(end_date,"%Y-%m-%d").date()
@@ -206,11 +268,9 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
         Monthly =  Dim_month.merge(Grouped,on='Month',how='left')
         Monthly['Date'] = Monthly['Month'].apply(lambda x: datetime.strptime(x,"%m-%Y").date())
         Monthly = Monthly.sort_values(by = ['Date'])
-        #Monthly.drop('Date', axis = 1, inplace=True)
         Monthly = Monthly.reset_index(drop=True)
         Monthly['Avg Cal'] = Monthly['Active Cal'] / Monthly['# Workouts']
         Monthly.fillna(0,inplace=True)
-
         figb = px.bar(Monthly[-12:], x='Month', y='# Workouts',text_auto=True)
         figb.update_layout(
             yaxis={'visible': True, 'showticklabels': True, 'title':None,'showgrid':False},
@@ -218,7 +278,11 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
             title={'text':'Workouts Per Month','x':0.5,'y':0.9,'xanchor':'center','yanchor':'top'}
                           )
         figb.update_traces(marker_color='#079A82')
-        return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb
+        Max_BPM = max(filtered_df['maxHeartRate'])
+        Avg_BPM = '{:.0f}'.format(np.average(filtered_df['avgHeartRate']))
+        Avg_Cal = '{:.0f}'.format(np.average(filtered_df['activeEnergy']))
+        Avg_Workouts = '{:.1f}'.format(np.average(Monthly['# Workouts'].iloc[:-1]))
+        return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb, Max_BPM, Avg_BPM, Avg_Cal, Avg_Workouts
     
     sdate = datetime.strptime(start_date,"%Y-%m-%d").date()
     edate = datetime.strptime(end_date,"%Y-%m-%d").date()
@@ -236,7 +300,6 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
     Monthly =  Dim_month.merge(Grouped,on='Month',how='left')
     Monthly['Date'] = Monthly['Month'].apply(lambda x: datetime.strptime(x,"%m-%Y").date())
     Monthly = Monthly.sort_values(by = ['Date'])
-    #Monthly.drop('Date', axis = 1, inplace=True)
     Monthly = Monthly.reset_index(drop=True)
     Monthly['Avg Cal'] = Monthly['Active Cal'] / Monthly['# Workouts']
     Monthly.fillna(0,inplace=True)
@@ -248,15 +311,21 @@ def Update_Bar_Chart(workout_type, start_date, end_date):
         title={'text':'Workouts Per Month','x':0.5,'y':0.9,'xanchor':'center','yanchor':'top'}
                       )
     figb.update_traces(marker_color='#079A82')
-    return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb
+    Max_BPM = max(filtered_df['maxHeartRate'])
+    Avg_BPM = '{:.0f}'.format(np.average(filtered_df['avgHeartRate']))
+    Avg_Cal = '{:.0f}'.format(np.average(filtered_df['activeEnergy']))
+    Avg_Workouts = '{:.1f}'.format(np.average(Monthly['# Workouts'].iloc[:-1]))
+    return [{'label':i, 'value':i} for i in filtered_df['Startstr']], filtered_df['Startstr'].iloc[0], figb, Max_BPM, Avg_BPM, Avg_Cal, Avg_Workouts
+
+
 
 @app.callback(
-    Output('Date', 'children'),
     Output('Duration', 'children'),
     Output('Active_cal', 'children'),
     Output('Avg_hr', 'children'),
     Output('Max_hr', 'children'),
     Output('Type', 'children'),
+    Output('single1', 'children'),
     Input('datedropdown', 'value'))
 
 def update_workout_stats(date):
@@ -267,21 +336,65 @@ def update_workout_stats(date):
     Avg_hr = "{:,.0f}".format(Day_data['avgHeartRate'][0])
     Max_hr = "{:,.0f}".format(Day_data['maxHeartRate'][0])
     Type = Day_data['name'][0]
-    return Date, Duration, Active_cal, Avg_hr, Max_hr, Type
+    if Type in ['Running', 'Cycling', 'Walking']:
+        Distance = float(Day_data['distance'].iloc[0])
+        #Pace = ((Day_data['end'][0] - Day_data['start'][0])/timedelta(minutes=1))/Distance
+        return Duration, Active_cal, "{:,.2f}".format(Distance), Max_hr, Type, 'Distance'
+
+    else:
+        return Duration, Active_cal, Avg_hr, Max_hr, Type, 'Avg_hr'
 
 
 @app.callback(
     Output('graph', 'figure'),
-    Input('datedropdown', 'value'))
+    Input('datedropdown', 'value'),
+    Input('Type', 'children')
+)
 
-def update_figure(date):
-    Day_data = df.loc[df['Startstr'] == date].reset_index()
-    Heart_Rate = pd.DataFrame.from_dict(Day_data['heartRateData'][0])
-    fig = px.line(x=Heart_Rate['date'],y=Heart_Rate['qty'])
-    fig.update_layout(yaxis={'visible':True, 'title':'BPM'},
-                      xaxis={'visible':False})
-    fig.update_traces(line_color='#079A82')
-    return fig
+def update_figure(date, workout_type):
+    if workout_type in ['Running', 'Cycling', 'Walking']:
+        Day_data = df.loc[df['Startstr'] == date].reset_index()
+        route = pd.DataFrame(Day_data['route'].loc[0])
+        route['timestamp'] = route['timestamp'].apply(lambda x: datetime.strptime(x,"%Y-%m-%d %H:%M:%S %z").strftime("%I:%M %p"))
+      
+        fig = px.scatter_mapbox(
+            route, 
+            lat="lat", 
+            lon="lon",
+            hover_name="timestamp",
+            hover_data={
+                "lat": ":.2f",
+                "lon": ":.2f",
+                "altitude": ":.1f"
+            },
+            zoom=11, 
+            height=500,
+        )
+        fig.update_layout(
+            margin=dict(r=0, t=0, l=0, b=0),
+            mapbox_style="white-bg",
+            autosize = True,
+            hovermode='closest',
+            mapbox_layers=[
+                {
+                    "below": 'traces',
+                    "sourcetype": "raster",
+                    "sourceattribution": "United States Geological Survey",
+                    "source": [
+                        "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
+                    ]
+                }
+              ]
+        )
+        return fig
+    else:
+        Day_data = df.loc[df['Startstr'] == date].reset_index()
+        Heart_Rate = pd.DataFrame.from_dict(Day_data['heartRateData'][0])
+        fig = px.line(x=Heart_Rate['date'],y=Heart_Rate['qty'])
+        fig.update_layout(yaxis={'visible':True, 'title':'BPM'},
+                          xaxis={'visible':False})
+        fig.update_traces(line_color='#079A82')
+        return fig
 
 if __name__ == '__main__':
     app.run_server(debug=True)
