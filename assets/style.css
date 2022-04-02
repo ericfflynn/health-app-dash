@@ -6,7 +6,12 @@ body {
 
 .header {
     background-color: #222222;
-    height: 250px;
+    height: 200px;
+    padding: 16px 0 0 0;
+}
+.subheader {
+    background-color: #222222;
+    height: 175px;
     padding: 16px 0 0 0;
 }
 
