@@ -2,13 +2,9 @@ from dash import Dash, html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import json
 import plotly.express as px
 import numpy as np
 import requests
-import plotly.graph_objects as go
-
 #Data Pull
 
 Response = requests.get('https://ericfflynn.github.io/Data/HealthAutoExport.json')
@@ -222,7 +218,7 @@ app.layout = html.Div(
                     children="Single Workout Analysis",className='header-title'
                 ),
                  html.P(
-                     children='This section is designed to analyze individual workout heart rate data', className='header-description',
+                     children='This section is designed to analyze individual workout heart rate data or GPS data when available', className='header-description',
                 ),
             ],
             className='subheader',
@@ -352,43 +348,49 @@ def update_workout_stats(date):
 )
 
 def update_figure(date, workout_type):
+    Day_data = df.loc[df['Startstr'] == date].reset_index()
     if workout_type in ['Running', 'Cycling', 'Walking']:
-        Day_data = df.loc[df['Startstr'] == date].reset_index()
         route = pd.DataFrame(Day_data['route'].loc[0])
-        route['timestamp'] = route['timestamp'].apply(lambda x: datetime.strptime(x,"%Y-%m-%d %H:%M:%S %z").strftime("%I:%M %p"))
-      
-        fig = px.scatter_mapbox(
-            route, 
-            lat="lat", 
-            lon="lon",
-            hover_name="timestamp",
-            hover_data={
-                "lat": ":.2f",
-                "lon": ":.2f",
-                "altitude": ":.1f"
-            },
-            zoom=11, 
-            height=500,
-        )
-        fig.update_layout(
-            margin=dict(r=0, t=0, l=0, b=0),
-            mapbox_style="white-bg",
-            autosize = True,
-            hovermode='closest',
-            mapbox_layers=[
-                {
-                    "below": 'traces',
-                    "sourcetype": "raster",
-                    "sourceattribution": "United States Geological Survey",
-                    "source": [
-                        "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                }
-              ]
-        )
-        return fig
+        if len(route) > 0:
+            route['timestamp'] = route['timestamp'].apply(lambda x: datetime.strptime(x,"%Y-%m-%d %H:%M:%S %z").strftime("%I:%M %p"))
+            fig = px.scatter_mapbox(
+                route, 
+                lat="lat", 
+                lon="lon",
+                hover_name="timestamp",
+                hover_data={
+                    "lat": ":.2f",
+                    "lon": ":.2f",
+                    "altitude": ":.1f"
+                },
+                zoom=11, 
+                height=500,
+            )
+            fig.update_layout(
+                margin=dict(r=0, t=0, l=0, b=0),
+                mapbox_style="white-bg",
+                autosize = True,
+                hovermode='closest',
+                mapbox_layers=[
+                    {
+                        "below": 'traces',
+                        "sourcetype": "raster",
+                        "sourceattribution": "United States Geological Survey",
+                        "source": [
+                            "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"
+                        ]
+                    }
+                  ]
+            )
+            return fig
+        else:
+            Heart_Rate = pd.DataFrame.from_dict(Day_data['heartRateData'][0])
+            fig = px.line(x=Heart_Rate['date'],y=Heart_Rate['qty'])
+            fig.update_layout(yaxis={'visible':True, 'title':'BPM'},
+                              xaxis={'visible':False})
+            fig.update_traces(line_color='#079A82')
+            return fig
     else:
-        Day_data = df.loc[df['Startstr'] == date].reset_index()
         Heart_Rate = pd.DataFrame.from_dict(Day_data['heartRateData'][0])
         fig = px.line(x=Heart_Rate['date'],y=Heart_Rate['qty'])
         fig.update_layout(yaxis={'visible':True, 'title':'BPM'},
