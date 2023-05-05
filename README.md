@@ -1,4 +1,4 @@
-# [Eric Flynn's Personal Fitness Dashboard](https://eric-flynn-health-app.herokuapp.com/)
+# [Eric Flynn's Personal Fitness Dashboard]
 ## Summary
 The personal fitness dashboard tracks fitness progess through the use of KPI's and interactive visuals. 
 ## Purpose
